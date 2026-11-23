@@ -14,3 +14,6 @@ queries:
 notify:
   slack_webhook: ""      # optional: https://hooks.slack.com/services/...
   discord_webhook: ""    # optional: https://discord.com/api/webhooks/...
+
+  # optional: take a fresh backup before verifying
+# backup_source: "postgres://user:password@host:5432/dbname"
