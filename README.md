@@ -19,7 +19,7 @@ dump file -> fresh Postgres container -> pg_restore -> checks -> report -> conta
 - Exit code `0` = backup OK, `1` = backup bad, `2` = tool/config error
 
 ## Requirements
-- Go 1.22+
+- Go (version in `go.mod`)
 - Docker
 
 ## Quick start
@@ -41,6 +41,15 @@ docker cp testdb:/tmp/latest.dump ./backups/latest.dump
 docker rm -f testdb
 ```
 
+## Take a fresh backup automatically (optional)
+Add `backup_source` and ProveBackup will run `pg_dump` for you before verifying:
+
+```yaml
+backup_path: backups/auto.dump
+backup_source: "postgres://user:password@host:5432/dbname"
+```
+If `backup_source` is omitted, ProveBackup just verifies the existing file at `backup_path`.
+
 ## Example output
 ```
 Restoring backup...
@@ -58,12 +67,13 @@ BACKUP FAILED
 ```
 
 ## Configuration
-See [`provebackup.example.yaml`](provebackup.example.yaml). Never commit your real `provebackup.yaml`: it contains webhook URLs.
+See [`provebackup.example.yaml`](provebackup.example.yaml). Never commit your real `provebackup.yaml`: it contains webhook URLs and database credentials.
 
 ## Roadmap
 - [x] PostgreSQL restore + custom SQL checks
 - [x] Slack / Discord alerts
+- [x] Optional automatic backup (`pg_dump`)
+- [x] Scheduling (Windows Task Scheduler / cron)
 - [ ] Fetch backups from S3
 - [ ] MySQL support
-- [ ] Daily scheduler
 - [ ] Hosted version
