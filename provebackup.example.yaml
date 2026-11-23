@@ -1,0 +1,16 @@
+backup_path: backups/latest.dump
+postgres_image: postgres:16
+min_tables: 2
+max_restore_seconds: 600
+
+queries:
+  - name: users exist
+    sql: SELECT count(*) FROM users
+    min: 3
+  - name: orders exist
+    sql: SELECT count(*) FROM orders
+    min: 1
+
+notify:
+  slack_webhook: ""      # optional: https://hooks.slack.com/services/...
+  discord_webhook: ""    # optional: https://discord.com/api/webhooks/...
