@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ type Query struct {
 
 type Config struct {
 	BackupPath        string  `yaml:"backup_path"`
+	BackupSource      string  `yaml:"backup_source"`
 	PostgresImage     string  `yaml:"postgres_image"`
 	MinTables         int64   `yaml:"min_tables"`
 	MaxRestoreSeconds int     `yaml:"max_restore_seconds"`
@@ -51,8 +53,10 @@ func loadConfig(path string) (*Config, error) {
 	if c.BackupPath == "" {
 		return nil, fmt.Errorf("backup_path is required")
 	}
-	if _, err := os.Stat(c.BackupPath); err != nil {
-		return nil, fmt.Errorf("backup file not found: %s", c.BackupPath)
+	if c.BackupSource == "" {
+		if _, err := os.Stat(c.BackupPath); err != nil {
+			return nil, fmt.Errorf("backup file not found: %s", c.BackupPath)
+		}
 	}
 	if c.PostgresImage == "" {
 		c.PostgresImage = "postgres:16"
@@ -61,6 +65,28 @@ func loadConfig(path string) (*Config, error) {
 		c.MinTables = 1
 	}
 	return &c, nil
+}
+
+func takeBackup(image, dsn, outPath string) error {
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		return err
+	}
+	f, err := os.Create(outPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	var stderr bytes.Buffer
+	cmd := exec.Command("docker", "run", "--rm",
+		"--add-host=host.docker.internal:host-gateway",
+		image, "pg_dump", "-Fc", dsn)
+	cmd.Stdout = f // نكتب مباشرة للملف بدون > اللي بيخرّب الملفات بـ PowerShell
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return nil
 }
 
 func queryInt(container, sql string) (int64, error) {
@@ -83,7 +109,6 @@ func report(failed *bool, name string, ok bool, detail string) {
 	lines = append(lines, line)
 }
 
-// يرسل JSON لرابط webhook
 func postJSON(url string, payload map[string]string) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -107,8 +132,8 @@ func notify(cfg *Config, ok bool) {
 		title = "❌ provebackup: BACKUP FAILED"
 	}
 	text := title + "\n```\n" + strings.Join(lines, "\n") + "\n```"
-	if len(text) > 1900 { // حد Discord 2000 حرف
-		text = text[:1900]
+	if len(text) > 1900 {
+		text = text[:1900] + "\n```"
 	}
 
 	if u := cfg.Notify.SlackWebhook; u != "" {
@@ -130,6 +155,20 @@ func run() int {
 		return 2
 	}
 
+	toolError := func(msg string) int {
+		fmt.Println(msg)
+		lines = append(lines, "[ERROR] "+msg)
+		notify(cfg, false)
+		return 2
+	}
+
+	if cfg.BackupSource != "" {
+		fmt.Println("Taking backup...")
+		if err := takeBackup(cfg.PostgresImage, cfg.BackupSource, cfg.BackupPath); err != nil {
+			return toolError("backup failed: " + err.Error())
+		}
+	}
+
 	name := fmt.Sprintf("provebackup-%d", time.Now().UnixNano())
 
 	fmt.Println("Starting", cfg.PostgresImage, "...")
@@ -138,8 +177,7 @@ func run() int {
 		"-e", "POSTGRES_DB=restore_test",
 		cfg.PostgresImage)
 	if err != nil {
-		fmt.Println("failed to start:", out)
-		return 2
+		return toolError("failed to start container: " + out)
 	}
 	defer docker("rm", "-f", "-v", name)
 
@@ -154,14 +192,12 @@ func run() int {
 		time.Sleep(time.Second)
 	}
 	if !ready {
-		fmt.Println("Postgres did not become ready in time")
-		return 2
+		return toolError("Postgres did not become ready in time")
 	}
 
 	out, err = docker("cp", cfg.BackupPath, name+":/tmp/backup.dump")
 	if err != nil {
-		fmt.Println("cannot copy backup:", out)
-		return 2
+		return toolError("cannot copy backup: " + out)
 	}
 
 	fmt.Println("Restoring backup...")
