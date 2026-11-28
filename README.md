@@ -72,8 +72,8 @@ See [`provebackup.example.yaml`](provebackup.example.yaml). Never commit your re
 ## Roadmap
 - [x] PostgreSQL restore + custom SQL checks
 - [x] Slack / Discord alerts
-- [x] Optional automatic backup (`pg_dump`)
-- [x] Scheduling (Windows Task Scheduler / cron)
-- [ ] Fetch backups from S3
-- [ ] MySQL support
+- [x] Optional automatic backup (`pg_dump` / `mysqldump`)
+- [x] Fetch backups from S3 (and S3-compatible storage)
+- [x] MySQL support
+- [ ] Docker image and GitHub Action
 - [ ] Hosted version
