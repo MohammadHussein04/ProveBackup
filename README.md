@@ -69,6 +69,26 @@ BACKUP FAILED
 ## Configuration
 See [`provebackup.example.yaml`](provebackup.example.yaml). Never commit your real `provebackup.yaml`: it contains webhook URLs and database credentials.
 
+## MySQL
+```yaml
+engine: mysql
+image: mysql:8
+backup_path: backups/mysql.sql
+backup_source: "mysql://user:password@host:3306/dbname"
+```
+
+## Fetch the backup from S3
+```yaml
+backup_path: backups/from-s3.dump
+s3:
+  bucket: my-bucket
+  key: backups/latest.dump
+  region: us-east-1
+  endpoint: ""      # only for S3-compatible storage
+  access_key: ""    # empty = use AWS_ACCESS_KEY_ID from the environment
+  secret_key: ""    # empty = use AWS_SECRET_ACCESS_KEY from the environment
+```
+Use either `backup_source` or `s3`, not both.
 ## Roadmap
 - [x] PostgreSQL restore + custom SQL checks
 - [x] Slack / Discord alerts
