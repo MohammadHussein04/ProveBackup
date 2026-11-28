@@ -1,3 +1,4 @@
+# engine: postgres        # postgres (default) or mysql
 backup_path: backups/latest.dump
 postgres_image: postgres:16
 min_tables: 2
@@ -15,5 +16,15 @@ notify:
   slack_webhook: ""      # optional: https://hooks.slack.com/services/...
   discord_webhook: ""    # optional: https://discord.com/api/webhooks/...
 
-  # optional: take a fresh backup before verifying
+# Optional: take a fresh backup before verifying (use ONE of backup_source or s3)
 # backup_source: "postgres://user:password@host:5432/dbname"
+# MySQL: engine: mysql, image: mysql:8, backup_source: "mysql://user:password@host:3306/dbname"
+
+# Optional: download the backup from S3 (or S3-compatible storage) before verifying
+# s3:
+#   bucket: my-bucket
+#   key: backups/latest.dump
+#   region: us-east-1
+#   endpoint: ""          # only for S3-compatible services
+#   access_key: ""        # leave empty to use AWS_ACCESS_KEY_ID from the environment
+#   secret_key: ""        # leave empty to use AWS_SECRET_ACCESS_KEY from the environment
